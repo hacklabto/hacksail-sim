@@ -38,7 +38,7 @@ const calculateVectorSumMagnitude = function(mag1, ang1, mag2, ang2)
 	+ 2 * mag1 * mag2 * Math.cos(ang1-ang2));
 }
 
-const calculateRelativeWindRadians = function({
+const calculateApparentWindRadians = function({
   destinationX,
   destinationY,
   boatX,
@@ -48,11 +48,11 @@ const calculateRelativeWindRadians = function({
   absoluteWindRadians,
   windVelocity
 }) {
-  return calculateVectorSumRadians(-1 * boatVelocity, absoluteBoatRadians, windVelocity, absoluteWindRadians);
+  return calculateVectorSumRadians(boatVelocity, absoluteBoatRadians, windVelocity, absoluteWindRadians);
 	
 }
 
-const calculateRelativeWindSpeed = function({
+const calculateApparentWindSpeed = function({
   destinationX,
   destinationY,
   boatX,
@@ -64,7 +64,7 @@ const calculateRelativeWindSpeed = function({
 }) {
 	//Apparent wind (VA) is the air velocity acting upon the leading edge of the most forward sail or as experienced by instrumentation or crew on a moving sailing craft. 
 	//It is the vector sum of true wind velocity and the apparent wind component resulting from boat velocity (VA = -VB + VT). 
-	return calculateVectorSumMagnitude(-1 * boatVelocity, absoluteBoatRadians, windVelocity, absoluteWindRadians);
+	return calculateVectorSumMagnitude(boatVelocity, absoluteBoatRadians, windVelocity, absoluteWindRadians);
 }
 
 //Interpolates a in A's, returns interpolated b in B's.
@@ -115,7 +115,7 @@ const calculateSailForce = function(relativeWindSpeed, relativeWindRadians, debu
 	const frRadians = -1 * relativeWindRadians;
 	
 	
-	const experimental_wind_speed = 1; //These force numbers have to be relative to something..
+	const experimental_wind_speed = 4; //These force numbers have to be relative to something..
 	var angle_atk = [0,  20, 25,  28,  30,  50,  70,  80,  90]; //Angle of attack (sail relative to wind; *not* boat relative to wind)
 	var liftForce = [0,  80, 110, 125, 120, 95,  70,  50,  25]; //Perpendicular to the wind
 	var dragForce = [10, 25, 40,  55,  65,  119, 160, 175, 180]; //In the direction of the wind
@@ -124,28 +124,94 @@ const calculateSailForce = function(relativeWindSpeed, relativeWindRadians, debu
 	var bestAttackDegrees = 0;
 	var bfd = 0;
 	var bfl = 0;
-	for (let attackDegrees = 0; attackDegrees <= 90; attackDegrees += 30)
-	{		
-		const Fl = lookupInterpolate(attackDegrees, angle_atk, liftForce);
-		const Fd = lookupInterpolate(attackDegrees, angle_atk, dragForce);	
+	var bft = 0;
+	var frd = 0;
+	var bbr = 0;
+	
+	// if(debug)
+	// {
+		// context.beginPath();
+		// context.strokeStyle = "#00FFFF";
+
+		// context.strokeText((relativeWindRadians).toFixed(1), simulation.boatX, simulation.boatY + 60);
+	
+		// context.stroke();
+	// }
+	
+	
+	for (let boomRadians = Math.PI/2; boomRadians <= 3/2*Math.PI; boomRadians += Math.PI/8)
+	{	
+		attackDegrees = (boomRadians - relativeWindRadians) * 180 / Math.PI - 180;
+		
+		if(attackDegrees < 0 || attackDegrees > 90)
+			continue;
+
+		const Fl = lookupInterpolate(attackDegrees, angle_atk, liftForce) * relativeWindSpeed / experimental_wind_speed;
+		const Fd = lookupInterpolate(attackDegrees, angle_atk, dragForce) * relativeWindSpeed / experimental_wind_speed;	
 		const Ft = Math.sqrt(Fl * Fl + Fd * Fd);
 
-		
 		const attackRadians = attackDegrees / 180 * Math.PI;
-		const ftRadians = attackRadians - Math.PI / 2;
-		const frDecomp = ftRadians - frRadians;
+		const ftRadians = attackRadians;// - Math.PI / 2;
+
+		const frDecomp = attackRadians + relativeWindRadians;
+		
+		if(debug)
+		{
+			context.beginPath();
+			context.strokeStyle = "#000000";
+			context.moveTo(simulation.boatX, simulation.boatY);
+			context.lineTo(simulation.boatX + 30 * Math.cos(boomRadians+simulation.absoluteBoatRadians), simulation.boatY + 30 * Math.sin(boomRadians+simulation.absoluteBoatRadians));
+			
+			context.strokeText((attackDegrees).toFixed(1), simulation.boatX + 40 * Math.cos(boomRadians+simulation.absoluteBoatRadians), simulation.boatY + 40 * Math.sin(boomRadians+simulation.absoluteBoatRadians));
+		
+			//context.strokeText((Fl).toFixed(0), simulation.boatX - 60 + 40 * Math.cos(boomRadians+simulation.absoluteBoatRadians), simulation.boatY + 40 * Math.sin(boomRadians+simulation.absoluteBoatRadians));
+			//context.strokeText((Fd).toFixed(0), simulation.boatX - 40 + 40 * Math.cos(boomRadians+simulation.absoluteBoatRadians), simulation.boatY + 40 * Math.sin(boomRadians+simulation.absoluteBoatRadians));
+			context.strokeText((Math.cos(ftRadians)).toFixed(1), simulation.boatX - 40 + 40 * Math.cos(boomRadians+simulation.absoluteBoatRadians), simulation.boatY + 40 * Math.sin(boomRadians+simulation.absoluteBoatRadians));
+			
+			context.strokeText((attackRadians).toFixed(1), simulation.boatX - 80 + 40 * Math.cos(boomRadians+simulation.absoluteBoatRadians), simulation.boatY + 40 * Math.sin(boomRadians+simulation.absoluteBoatRadians));
+		
+		
+			context.stroke();
+			
+			
+			context.beginPath();
+			context.strokeStyle = "#FF0000";
+			context.moveTo(simulation.boatX, simulation.boatY);
+			context.lineTo(simulation.boatX + Ft * Math.cos(ftRadians + simulation.absoluteBoatRadians), simulation.boatY + Ft * Math.sin(ftRadians + simulation.absoluteBoatRadians));
+			
+			context.strokeText((frDecomp).toFixed(1), simulation.boatX + Ft * Math.cos(ftRadians + simulation.absoluteBoatRadians), simulation.boatY + Ft * Math.sin(ftRadians + simulation.absoluteBoatRadians));
+		
+		
+			context.stroke();
+		}
+		
+		
+		
+		
+		
+		if(debug)
+		{
+			context.beginPath();
+			context.strokeStyle = "#FF0000";
+
+			context.strokeText((frDecomp).toFixed(1), simulation.boatX - 120 + 40 * Math.cos(boomRadians+simulation.absoluteBoatRadians), simulation.boatY + 40 * Math.sin(boomRadians+simulation.absoluteBoatRadians));
+		
+			context.stroke();
+		}
+		
 
 		//TODO I suspect the port/startboard asymmetry is here.
 		if(debug)
 		{
-		console.log("-----");
-		console.log(attackDegrees);
-		console.log(frRadians);
-		console.log(ftRadians);
-		console.log(frDecomp);
+		// console.log("-----");
+		// console.log(attackDegrees);
+		// console.log(frRadians);
+		// console.log(ftRadians);
+		// console.log(frDecomp);
+		// console.log(Math.cos(frDecomp));
 		}
 		
-		const Fr = Ft * Math.cos(frDecomp); //Decompose Ft into Fr and Flat
+		var Fr = Ft * Math.cos(frDecomp); //Decompose Ft into Fr and Flat
 		
 		if(Fr > maxFrMag)
 		{
@@ -154,6 +220,9 @@ const calculateSailForce = function(relativeWindSpeed, relativeWindRadians, debu
 			
 			bfd = Fd;
 			bfl = Fl;
+			bft = Ft;
+			frd = frDecomp;
+			bbr = boomRadians;
 		}
 	}
 	
@@ -162,34 +231,51 @@ const calculateSailForce = function(relativeWindSpeed, relativeWindRadians, debu
 		context.beginPath();
 		context.strokeStyle = "#000000";
 		//Print angles - attack and Fr
-		context.strokeText(bestAttackDegrees.toFixed(1), simulation.boatX, simulation.boatY - 13);
-		context.strokeText((frRadians/Math.PI*180).toFixed(1), simulation.boatX+30, simulation.boatY - 13);
+		context.strokeText((frd*180/3.14).toFixed(1), simulation.boatX+60, simulation.boatY - 13);
+		//context.strokeText((frRadians/Math.PI*180).toFixed(1), simulation.boatX+60, simulation.boatY - 13);
 		
 		//Print forces - lift and drag
-		//context.strokeText((bfl * relativeWindSpeed / experimental_wind_speed).toFixed(1), simulation.boatX, simulation.boatY - 13);
-		//context.strokeText((bfd * relativeWindSpeed / experimental_wind_speed).toFixed(1), simulation.boatX+30, simulation.boatY - 13);
+		context.strokeText((bfl).toFixed(1), simulation.boatX, simulation.boatY - 13);
+		context.strokeText((bfd).toFixed(1), simulation.boatX+30, simulation.boatY - 13);
+		//context.strokeText((bft).toFixed(1), simulation.boatX+60, simulation.boatY - 13);
 		
 		//Print forces - |Fr|
-		//context.strokeText((maxFrMag * relativeWindSpeed / experimental_wind_speed).toFixed(1), simulation.boatX, simulation.boatY - 13);
+		context.strokeText((maxFrMag).toFixed(1), simulation.boatX + 90, simulation.boatY - 13);
+			
+			
+			
+		const ang = bestAttackDegrees / 180 * Math.PI + relativeWindRadians - Math.PI/2;
 		
-		const ang = bestAttackDegrees / 180 * Math.PI + relativeWindRadians;
-		context.beginPath();
-		context.strokeStyle = "#000000";
-		context.moveTo(simulation.boatX, simulation.boatY);
-		context.lineTo(simulation.boatX + 20 * Math.cos(ang), simulation.boatY + 20 * Math.sin(ang));
-		context.stroke();
+		//context.strokeText((ang*180/Math.PI).toFixed(2), simulation.boatX + 90, simulation.boatY - 13);
+		
+		
+		// context.beginPath();
+		// context.strokeStyle = "#000000";
+		// context.moveTo(simulation.boatX, simulation.boatY);
+		// context.lineTo(simulation.boatX + 20 * Math.cos(ang), simulation.boatY + 20 * Math.sin(ang));
+		// context.stroke();
+		
+		// context.beginPath();
+		// context.strokeStyle = "#000000";
+		// context.moveTo(simulation.boatX, simulation.boatY);
+		// context.lineTo(simulation.boatX + 20 * Math.cos(bbr+simulation.absoluteBoatRadians), simulation.boatY + 20 * Math.sin(bbr+simulation.absoluteBoatRadians));
+		
+		// context.strokeText((attackDegrees).toFixed(1), simulation.boatX + 40 * Math.cos(bbr+simulation.absoluteBoatRadians), simulation.boatY + 40 * Math.sin(bbr+simulation.absoluteBoatRadians));
+	
+		// context.stroke();
 		
 	}
 
 	
 	
-	return maxFrMag * relativeWindSpeed / experimental_wind_speed;
+	return maxFrMag;
 }
+
 
 var canvas = document.getElementById('myCanvas');
 var context = canvas.getContext('2d');
 
-const water_speed_damping_coefficient = 0.95;	//Boat speed reduced by this amount each tick
+const water_speed_damping_coefficient = 20;		//Drag force -k * velocity^2
 const turning_damping_coefficient = 0.06;		//IIR filter on actual boat angle, from desired (navigation) boat angle
 const sf = 10; 									//Line length scale factor
 
@@ -198,29 +284,30 @@ const simulation = {
   destinationY: 200,
   boatX: 50,
   boatY: 50,
-  boatVelocity: 1.5,
-  boatMass: 300,
+  boatVelocity: 5,
+  boatMass: 1000,
   absoluteBoatRadians: 0,
-  absoluteWindRadians: 265 / 180 * Math.PI,
-  windVelocity: 2
+  absoluteWindRadians: 0,
+  windVelocity: 5
 }
 
-
+var simNumber = -1;
 //Run one simulation for each wind angle
-for(let wind=0; wind<=360; wind += 15)
+for(let wind=-60; wind<=60; wind += 15)
 {
+	simNumber++;
 	console.log("WIND CHANGE"); //Reset sim.
-	simulation.boatX = 100;
-	simulation.boatY = 50 + wind * 3;
-	simulation.boatVelocity = 1.50
-	simulation.absoluteBoatRadians = 0
-	simulation.absoluteWindRadians = wind / 180 * Math.PI;
+	simulation.boatX = 200;
+	simulation.boatY = 50 + simNumber * 100;
+	simulation.boatVelocity = 3
+	simulation.absoluteBoatRadians = wind / 180 * Math.PI;
+	simulation.absoluteWindRadians = 270 / 180 * Math.PI;
 	simulation.destinationX = 1000;
 	simulation.destinationY = simulation.boatY;
 	
 	context.beginPath();
 	context.strokeStyle = "#000000";
-	context.strokeText("Wind: ".concat(wind.toFixed(1)).concat("deg"), simulation.boatX - 100, simulation.boatY);
+	context.strokeText(wind.toFixed(1).concat("deg"), simulation.boatX - 190, simulation.boatY);
 	  
 	
 	//Draw start circle
@@ -239,13 +326,16 @@ for(let wind=0; wind<=360; wind += 15)
 	
 	
 	//Run simulation
-	for (let i = 0; i <= 200; i++) {
+	for (let i = 0; i <= 0; i++) {
 
 	  const absoluteNavigationRadians = absoluteNavigationAngle(simulation)
 	  
-	  const relativeWindRadians = calculateRelativeWindRadians(simulation);
+	  // const apparentWindRadians = -1*wind/180*Math.PI + 3/2*Math.PI;// - simulation.absoluteWindRadians;//calculateApparentWindRadians(simulation);
 	 	
-	  const relativeWindSpeed = calculateRelativeWindSpeed(simulation);
+	  // const apparentWindRadians = simulation.windVelocity;//calculateApparentWindSpeed(simulation);
+	  var apparentWindRadians = calculateApparentWindRadians(simulation);
+	 	
+	  var apparentWindSpeed = calculateApparentWindSpeed(simulation);
 	  
 	  
 	  //Write relative wind speed in blue
@@ -253,14 +343,19 @@ for(let wind=0; wind<=360; wind += 15)
 	  {
 		  context.beginPath();
 		  context.strokeStyle = "#0000FF";
-		  context.strokeText(relativeWindSpeed.toFixed(1), simulation.boatX, simulation.boatY - 3);
+		  context.strokeText(apparentWindSpeed.toFixed(1), simulation.boatX, simulation.boatY - 3);
 	  }
 	  
-	  const forwardForce = calculateSailForce(relativeWindSpeed, relativeWindRadians, i==000000, context, simulation); 
-	  const windAcceleration = forwardForce / simulation.boatMass;
-	  simulation.boatVelocity *= water_speed_damping_coefficient;
-	  simulation.boatVelocity += windAcceleration; 
 
+	  //Draw boat heading
+	  if(i % 40 == 0)
+	  {
+		  context.beginPath();
+		  context.strokeStyle = "#00FF00";
+		  context.moveTo(simulation.boatX, simulation.boatY);
+		  context.lineTo(simulation.boatX + simulation.boatVelocity * sf * Math.cos(simulation.absoluteBoatRadians), simulation.boatY  + simulation.boatVelocity * sf * Math.sin(simulation.absoluteBoatRadians));
+		  context.stroke();
+	  }
 	  
 	  //Draw absolute wind in red
 	  if(i % 40 == 0)
@@ -272,30 +367,42 @@ for(let wind=0; wind<=360; wind += 15)
 		  context.stroke();
 	  }
 	  
-	  //Draw relative wind in blue
+
+	  //Draw apparent wind in blue
 	  if(i % 40 == 0)
 	  {
 		  context.beginPath();
 		  context.strokeStyle = "#0000FF";
 		  context.moveTo(simulation.boatX, simulation.boatY);
-		  context.lineTo(simulation.boatX + relativeWindSpeed * sf * Math.cos(relativeWindRadians), simulation.boatY + relativeWindSpeed * sf * Math.sin(relativeWindRadians));
+		  context.lineTo(
+		  simulation.boatX + apparentWindSpeed * sf * Math.cos(apparentWindRadians), 
+		  simulation.boatY + apparentWindSpeed * sf * Math.sin(apparentWindRadians));
 		  context.stroke();
 	  }
 	  
+	  //Draw relative wind in teal
+	  // if(i % 40 == 0)
+	  // {
+		  // context.beginPath();
+		  // context.strokeStyle = "#00FFFF";
+		   // context.moveTo(simulation.boatX, simulation.boatY);
+		  // context.lineTo(
+		  // simulation.boatX + apparentWindSpeed * sf * Math.cos(apparentWindRadians - simulation.absoluteBoatRadians), 
+		  // simulation.boatY + apparentWindSpeed * sf * Math.sin(apparentWindRadians - simulation.absoluteBoatRadians));
+
+		  // context.stroke();
+	  // }
 	  
+	  
+	  const forwardForce = calculateSailForce(apparentWindSpeed, apparentWindRadians - simulation.absoluteBoatRadians, i==200 || i==0, context, simulation); 
+	  const dragForce = water_speed_damping_coefficient * simulation.boatVelocity * simulation.boatVelocity;
+	  const windAcceleration = (forwardForce - dragForce) / simulation.boatMass;
+	  //simulation.boatVelocity += windAcceleration; 
+
 	  
 	  //IIR response filter actual boat heading
 	  simulation.absoluteBoatRadians = (1-turning_damping_coefficient) * simulation.absoluteBoatRadians + turning_damping_coefficient * absoluteNavigationRadians;
 	  
-	  //Draw boat heading
-	  if(i % 40 == 0)
-	  {
-		  context.beginPath();
-		  context.strokeStyle = "#00FF00";
-		  context.moveTo(simulation.boatX, simulation.boatY);
-		  context.lineTo(simulation.boatX + simulation.boatVelocity * sf * Math.cos(simulation.absoluteBoatRadians), simulation.boatY  + simulation.boatVelocity * sf * Math.sin(simulation.absoluteBoatRadians));
-		  context.stroke();
-	  }
 	  
 	  simulation.boatX += simulation.boatVelocity * Math.cos(simulation.absoluteBoatRadians)
 	  simulation.boatY += simulation.boatVelocity * Math.sin(simulation.absoluteBoatRadians)
