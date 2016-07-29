@@ -5,10 +5,11 @@ const absoluteNavigationAngle = function({
   boatX,
   boatY,
   absoluteBoatRadians,
+  lastRequestedAbsoluteBoatRadians,
   boatVelocity,
   absoluteWindRadians,
   windVelocity
-}) {
+}, debug, context) {
   // const tackingAngleInDegrees = 30
   // const tackingRadians = tackingAngleInDegrees / 180 * Math.PI
   const absoluteDestinationRadians = Math.atan2(
@@ -19,40 +20,93 @@ const absoluteNavigationAngle = function({
   
   	  var apparentWindRadians = calculateApparentWindRadians(simulation);
 	 	
-	  var relativeWindRadians = apparentWindRadians - simulation.absoluteBoatRadians;
-	  var steerRadians = relativeWindRadians - Math.PI;
+	  var relativeWindRadians = apparentWindRadians - simulation.absoluteBoatRadians  + Math.PI;
+	 
+	  var minimumRadians = 30 / 180 * Math.PI;
 	  
-	  var minimumRadians = 0.7;
+	  var tackingRadians = 35 / 180 * Math.PI;
 	  
-	  // while(relativeWindRadians > Math.PI)
-		  // relativeWindRadians -= Math.PI;
-	  // while(relativeWindRadians < -1*Math.PI)
-		  // relativeWindRadians += Math.PI;
-	  //console.log(relativeWindRadians);
-	  //console.log(minimumRadians);
-	  
-	  
-	  // if(steerRadians < -1 * Math.PI)
-		  // steerRadians = 2*Math.PI - steerRadians;
-	  
-	  // if(steerRadians > 0 && steerRadians < minimumRadians)
-		  // return 0.5
-	  // if(steerRadians > -1 * minimumRadians && steerRadians <= 0)
-		  // return -1;
+	  // if(debug)
+	  // {
+		  // drawVectorL(simulation.boatX, simulation.boatY, 20, relativeWindRadians + 1 * minimumRadians + simulation.absoluteBoatRadians, ' ', "#000000", context);
+		  // drawVectorL(simulation.boatX, simulation.boatY, 20, relativeWindRadians - 1 * minimumRadians + simulation.absoluteBoatRadians, ' ', "#000000", context);
+	  // }
 	  
 	  
-	  // if(steerRadians > 0 && steerRadians < minimumRadians)
-		  // return steerRadians + minimumRadians;
-	  // if(steerRadians > -1 * minimumRadians && steerRadians <= 0)
-		  // return steerRadians - minimumRadians;
-  // const relativeDestinationRadians = (
-  //   absoluteDestinationRadians - absoluteBoatRadians + Math.PI*2
-  // ) % Math.PI*2
-  //
-  // TODO: if the wind is going to put us in irons then tack to the destination
-  // return navigationRadians
-  // TODO: if the wind is in ours sales head straight to the destination
-  return absoluteDestinationRadians
+	  const steerAnglePort      = relativeWindRadians - 1 * minimumRadians + simulation.absoluteBoatRadians;
+	  const steerAngleStarboard = relativeWindRadians + 1 * minimumRadians + simulation.absoluteBoatRadians;
+	  const tackAnglePort      = relativeWindRadians - 1 * tackingRadians + simulation.absoluteBoatRadians;
+	  const tackAngleStarboard = relativeWindRadians + 1 * tackingRadians + simulation.absoluteBoatRadians;
+	  
+	  var bestAbsoluteSteerAngle;
+	 
+	  var starboardError = steerAngleStarboard - absoluteDestinationRadians; //When destination is in irons, this is positive.
+ 	  var portError = absoluteDestinationRadians - steerAnglePort; //When destination is in irons, this is positive.
+	  var starboardTackError = tackAngleStarboard - absoluteDestinationRadians; //When destination is in irons, this is positive.
+ 	  var portTackError = absoluteDestinationRadians - tackAnglePort; //When destination is in irons, this is positive.
+	  
+	  if(starboardTackError < 0 || portTackError < 0)
+	  {
+		  //debug=true;
+		  bestAbsoluteSteerAngle = absoluteDestinationRadians;
+	  }
+	  else
+	  {
+		  //debug = true;
+		  var starboardRelative = Math.abs(simulation.lastRequestedAbsoluteBoatRadians - steerAngleStarboard);
+		  var portRelative = Math.abs(simulation.lastRequestedAbsoluteBoatRadians - steerAnglePort);
+		  
+		  if(starboardRelative < 0.01)
+		  {
+			  //debug = true;
+			  bestAbsoluteSteerAngle = steerAngleStarboard;
+		  }
+		  else if(portRelative < 0.01)
+		  {
+			  //debug = true;
+			  bestAbsoluteSteerAngle = steerAnglePort;
+		  }
+		  else
+		  {
+			//debug = true;
+			if(starboardError < portError)
+			  bestAbsoluteSteerAngle = steerAngleStarboard;
+		    else
+			  bestAbsoluteSteerAngle = steerAnglePort;
+		  }
+	  }
+	  
+
+	  if(debug)
+	  {
+		  var cp;
+		  var cs;
+		  if(relativeWindRadians <= -1 * minimumRadians || relativeWindRadians >= minimumRadians)
+		  {
+			  cp = "#000000";
+			  cs = "#000000";
+		  }
+		  else if (starboardError < portError) 
+		  {
+			  cp = "#000000";
+			  cs = "#00FF00";
+		  }
+		  else
+		  {
+			  cp = "#FF0000";
+			  cs = "#000000";
+		  }
+		  
+		  drawVectorL(simulation.boatX, simulation.boatY, 60, bestAbsoluteSteerAngle, ' ', '#CCCCCC', context);
+		  drawVectorL(simulation.boatX, simulation.boatY, 40, steerAnglePort, ' ', cp, context);
+		  drawVectorL(simulation.boatX, simulation.boatY, 40, steerAngleStarboard, ' ', cs, context);
+		  drawVectorL(simulation.boatX, simulation.boatY, 50, tackAnglePort, ' ', cp, context);
+		  drawVectorL(simulation.boatX, simulation.boatY, 50, tackAngleStarboard, ' ', cs, context);
+		  drawVectorL(simulation.boatX, simulation.boatY, 40, absoluteDestinationRadians, ' ', '#700070', context);
+		  
+	  }
+	  
+  return bestAbsoluteSteerAngle
 }
 
 const calculateVectorSumRadians = function(mag1, ang1, mag2, ang2)
@@ -87,8 +141,10 @@ const drawVectorL = function(x, y, mag, ang, text, colour, context)
 }
 
 //Draw vector with arrowhead, from (x, y) tail to tip at mag, angle.
-const drawVectorA = function(x, y, mag, ang, text, colour, context)
+const drawVectorA = function(x, y, mag, ang, text, colour, context, width=1, font="12px Arial")
 {
+	context.lineWidth=width;
+	context.font=font;
 	if(mag < 0) //If negative, flip the vector around.
 	{
 		mag *= -1;
@@ -112,7 +168,7 @@ const drawVectorA = function(x, y, mag, ang, text, colour, context)
 	context.strokeText(text, x + mag * Math.cos(ang) + 10 * Math.cos(ang), y + mag * Math.sin(ang) + 10 * Math.sin(ang));
 	
 	context.stroke();
-	
+	context.lineWidth=1;
 }
 
 const calculateApparentWindRadians = function({
@@ -346,19 +402,20 @@ const simulation = {
   boatVelocity: 5,
   boatMass: 1000,
   absoluteBoatRadians: 0,
+  lastRequestedAbsoluteBoatRadians: 0,
   absoluteWindRadians: 0,
   windVelocity: 5
 }
 
 var simNumber = -1;
 //Run one simulation for each wind angle
-for(let wind=0; wind<=360; wind += 15)
+for(let wind=270-90; wind<=270+90; wind += 30)
 {
 	simNumber++;
 	console.log("WIND CHANGE"); //Reset sim.
-	simulation.boatX = 150 + simNumber * 150;
+	simulation.boatX = 450 + simNumber * 550;
 	simulation.boatY = 150 ;
-	simulation.boatVelocity = 0.5;
+	simulation.boatVelocity = 0;
 	simulation.absoluteBoatRadians = Math.PI/2;//wind / 180 * Math.PI;
 	simulation.absoluteWindRadians = wind / 180 * Math.PI;//90 / 180 * Math.PI;
 	simulation.destinationX = simulation.boatX;
@@ -382,12 +439,12 @@ for(let wind=0; wind<=360; wind += 15)
 	context.fill();
 	
 	
-	
+	drawVectorA(simulation.destinationX, simulation.destinationY, 30*simulation.windVelocity, simulation.absoluteWindRadians, "Wind: ".concat((simulation.absoluteWindRadians*180/Math.PI).toFixed(0)), "#FF0000", context, 5, "30pt Arial");
 	
 	//Run simulation
-	for (let i = 0; i <= 200; i++) {
+	for (let i = 0; i <= 1000; i++) {
 
-	  const absoluteNavigationRadians = absoluteNavigationAngle(simulation)
+	  const absoluteNavigationRadians = absoluteNavigationAngle(simulation, i % 40 == 0, context)
 	  
 	  // const apparentWindRadians = -1*wind/180*Math.PI + 3/2*Math.PI;// - simulation.absoluteWindRadians;//calculateApparentWindRadians(simulation);
 	 	
@@ -412,12 +469,13 @@ for(let wind=0; wind<=360; wind += 15)
 
 	  
 	  
-	  const forwardForce = calculateSailForce(apparentWindSpeed, apparentWindRadians - simulation.absoluteBoatRadians, apparentWindRadians, i==200 || i==0, context, simulation); 
+	  const forwardForce = calculateSailForce(apparentWindSpeed, apparentWindRadians - simulation.absoluteBoatRadians, apparentWindRadians, i % 200 ==0, context, simulation); 
 	  const dragForce = water_speed_damping_coefficient * simulation.boatVelocity * simulation.boatVelocity;
 	  const windAcceleration = (forwardForce - dragForce) / simulation.boatMass;
 	  simulation.boatVelocity += windAcceleration; 
 
 	  
+	  simulation.lastRequestedAbsoluteBoatRadians = absoluteNavigationRadians;
 	  //IIR response filter actual boat heading
 	  simulation.absoluteBoatRadians = (1-turning_damping_coefficient) * simulation.absoluteBoatRadians + turning_damping_coefficient * absoluteNavigationRadians;
 	  
@@ -425,6 +483,12 @@ for(let wind=0; wind<=360; wind += 15)
 	  simulation.boatX += simulation.boatVelocity * Math.cos(simulation.absoluteBoatRadians)
 	  simulation.boatY += simulation.boatVelocity * Math.sin(simulation.absoluteBoatRadians)
 
+	  
+	  const dist = Math.pow(simulation.boatX - simulation.destinationX, 2) + Math.pow(simulation.boatY - simulation.destinationY, 2);
+	  const targetDistance = 200;
+	  if(dist < Math.pow(targetDistance,2))
+		  break;
+	  
 	}
 }
 
