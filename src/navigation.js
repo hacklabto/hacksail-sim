@@ -17,14 +17,15 @@ const absoluteNavigationAngle = function({
     destinationX - boatX
   )
   
+	//return absoluteDestinationRadians; //Uncomment to "turn off" the navigator and simply aim at the target.
   
   	  var apparentWindRadians = calculateApparentWindRadians(simulation);
 	 	
 	  var relativeWindRadians = apparentWindRadians - simulation.absoluteBoatRadians  + Math.PI;
 	 
-	  var minimumRadians = 30 / 180 * Math.PI;
+	  var minimumRadians = 33 / 180 * Math.PI;
 	  
-	  var tackingRadians = 35 / 180 * Math.PI;
+	  var tackingRadians = 33 / 180 * Math.PI;
 	  
 	  // if(debug)
 	  // {
@@ -407,88 +408,193 @@ const simulation = {
   windVelocity: 5
 }
 
-var simNumber = -1;
-//Run one simulation for each wind angle
-for(let wind=270-90; wind<=270+90; wind += 30)
+const simulateBoat = function(debug)
 {
-	simNumber++;
-	console.log("WIND CHANGE"); //Reset sim.
-	simulation.boatX = 450 + simNumber * 550;
-	simulation.boatY = 150 ;
-	simulation.boatVelocity = 0;
-	simulation.absoluteBoatRadians = Math.PI/2;//wind / 180 * Math.PI;
-	simulation.absoluteWindRadians = wind / 180 * Math.PI;//90 / 180 * Math.PI;
-	simulation.destinationX = simulation.boatX;
-	simulation.destinationY = 2000;//simulation.boatY;
-	
-	context.beginPath();
-	context.strokeStyle = "#000000";
-	context.strokeText(wind.toFixed(1).concat("deg"), simulation.boatX - 50, simulation.boatY - 50);
-	  
-	
-	//Draw start circle
-	context.beginPath();
-	context.strokeStyle = "#000000";
-	context.arc(simulation.boatX, simulation.boatY, 10, 0, 2*Math.PI);
-	context.stroke();
-
-	//Draw filled end circle
-	context.beginPath();
-	context.strokeStyle = "#000000";
-	context.arc(simulation.destinationX, simulation.destinationY, 10, 0, 2*Math.PI);
-	context.fill();
-	
-	
-	drawVectorA(simulation.destinationX, simulation.destinationY, 30*simulation.windVelocity, simulation.absoluteWindRadians, "Wind: ".concat((simulation.absoluteWindRadians*180/Math.PI).toFixed(0)), "#FF0000", context, 5, "30pt Arial");
-	
 	//Run simulation
-	for (let i = 0; i <= 1000; i++) {
+		for (let i = 0; i <= 2000; i++) {
 
-	  const absoluteNavigationRadians = absoluteNavigationAngle(simulation, i % 40 == 0, context)
-	  
-	  // const apparentWindRadians = -1*wind/180*Math.PI + 3/2*Math.PI;// - simulation.absoluteWindRadians;//calculateApparentWindRadians(simulation);
-	 	
-	  // const apparentWindRadians = simulation.windVelocity;//calculateApparentWindSpeed(simulation);
-	  var apparentWindRadians = calculateApparentWindRadians(simulation);
-	 	
-	  var apparentWindSpeed = calculateApparentWindSpeed(simulation);
-	  
-	  
-	  
-	  if(i % 40 == 0)
-	  {
-		  //Draw absolute wind in red
-		  drawVectorA(simulation.boatX, simulation.boatY, sf*simulation.windVelocity, simulation.absoluteWindRadians, simulation.windVelocity .toFixed(1), "#FF0000", context);
-		  //Draw boat heading in green
-		  drawVectorA(simulation.boatX, simulation.boatY, sf*simulation.boatVelocity, simulation.absoluteBoatRadians, simulation.boatVelocity.toFixed(1), "#00FF00", context);
-		  //Write relative wind speed in blue
-		  drawVectorA(simulation.boatX, simulation.boatY, sf*apparentWindSpeed, apparentWindRadians, apparentWindSpeed.toFixed(1), "#0000FF", context);
+		  const absoluteNavigationRadians = absoluteNavigationAngle(simulation, (i % 40 == 0)  && debug, context)
+		  
+		  // const apparentWindRadians = -1*wind/180*Math.PI + 3/2*Math.PI;// - simulation.absoluteWindRadians;//calculateApparentWindRadians(simulation);
+			
+		  // const apparentWindRadians = simulation.windVelocity;//calculateApparentWindSpeed(simulation);
+		  var apparentWindRadians = calculateApparentWindRadians(simulation);
+			
+		  var apparentWindSpeed = calculateApparentWindSpeed(simulation);
+		  
+		  
+		  
+		  if(i % 40 == 0 && debug)
+		  {
+			  //Draw absolute wind in red
+			  drawVectorA(simulation.boatX, simulation.boatY, sf*simulation.windVelocity, simulation.absoluteWindRadians, simulation.windVelocity .toFixed(1), "#FF0000", context);
+			  //Draw boat heading in green
+			  drawVectorA(simulation.boatX, simulation.boatY, sf*simulation.boatVelocity, simulation.absoluteBoatRadians, simulation.boatVelocity.toFixed(1), "#00FF00", context);
+			  //Write relative wind speed in blue
+			  drawVectorA(simulation.boatX, simulation.boatY, sf*apparentWindSpeed, apparentWindRadians, apparentWindSpeed.toFixed(1), "#0000FF", context);
 
-	  }
-	  
+		  }
+		  
 
-	  
-	  
-	  const forwardForce = calculateSailForce(apparentWindSpeed, apparentWindRadians - simulation.absoluteBoatRadians, apparentWindRadians, i % 200 ==0, context, simulation); 
-	  const dragForce = water_speed_damping_coefficient * simulation.boatVelocity * simulation.boatVelocity;
-	  const windAcceleration = (forwardForce - dragForce) / simulation.boatMass;
-	  simulation.boatVelocity += windAcceleration; 
+		  
+		  
+		  const forwardForce = calculateSailForce(apparentWindSpeed, apparentWindRadians - simulation.absoluteBoatRadians, apparentWindRadians, (i % 200 == 0) && debug, context, simulation); 
+		  const dragForce = water_speed_damping_coefficient * simulation.boatVelocity * simulation.boatVelocity;
+		  const windAcceleration = (forwardForce - dragForce) / simulation.boatMass;
+		  simulation.boatVelocity += windAcceleration; 
 
-	  
-	  simulation.lastRequestedAbsoluteBoatRadians = absoluteNavigationRadians;
-	  //IIR response filter actual boat heading
-	  simulation.absoluteBoatRadians = (1-turning_damping_coefficient) * simulation.absoluteBoatRadians + turning_damping_coefficient * absoluteNavigationRadians;
-	  
-	  
-	  simulation.boatX += simulation.boatVelocity * Math.cos(simulation.absoluteBoatRadians)
-	  simulation.boatY += simulation.boatVelocity * Math.sin(simulation.absoluteBoatRadians)
+		  
+		  simulation.lastRequestedAbsoluteBoatRadians = absoluteNavigationRadians;
+		  //IIR response filter actual boat heading
+		  simulation.absoluteBoatRadians = (1-turning_damping_coefficient) * simulation.absoluteBoatRadians + turning_damping_coefficient * absoluteNavigationRadians;
+		  
+		  
+		  simulation.boatX += simulation.boatVelocity * Math.cos(simulation.absoluteBoatRadians)
+		  simulation.boatY += simulation.boatVelocity * Math.sin(simulation.absoluteBoatRadians)
 
-	  
-	  const dist = Math.pow(simulation.boatX - simulation.destinationX, 2) + Math.pow(simulation.boatY - simulation.destinationY, 2);
-	  const targetDistance = 200;
-	  if(dist < Math.pow(targetDistance,2))
-		  break;
-	  
+		  
+		  const dist = Math.pow(simulation.boatX - simulation.destinationX, 2) + Math.pow(simulation.boatY - simulation.destinationY, 2);
+		  const targetDistance = 200;
+		  if(dist < Math.pow(targetDistance,2))
+			  return i;
+		  
+		}
+		
+		return 9999999;
+}
+
+const simulateFleet = function()
+{
+	var simNumber = -1;
+	//Run one simulation for each wind angle
+	for(let wind=270-90; wind<=270+90; wind += 30)
+	{
+		simNumber++;
+		console.log("WIND CHANGE"); //Reset sim.
+		simulation.boatX = 450 + simNumber * 550;
+		simulation.boatY = 150 ;
+		simulation.boatVelocity = 0;
+		simulation.absoluteBoatRadians = Math.PI/2;//wind / 180 * Math.PI;
+		simulation.absoluteWindRadians = wind / 180 * Math.PI;//90 / 180 * Math.PI;
+		simulation.destinationX = simulation.boatX;
+		simulation.destinationY = 2000;//simulation.boatY;
+		
+		context.beginPath();
+		context.strokeStyle = "#000000";
+		context.strokeText(wind.toFixed(1).concat("deg"), simulation.boatX - 50, simulation.boatY - 50);
+		  
+		
+		//Draw start circle
+		context.beginPath();
+		context.strokeStyle = "#000000";
+		context.arc(simulation.boatX, simulation.boatY, 10, 0, 2*Math.PI);
+		context.stroke();
+
+		//Draw filled end circle
+		context.beginPath();
+		context.strokeStyle = "#000000";
+		context.arc(simulation.destinationX, simulation.destinationY, 10, 0, 2*Math.PI);
+		context.fill();
+		
+		
+		drawVectorA(simulation.destinationX, simulation.destinationY, 30*simulation.windVelocity, simulation.absoluteWindRadians, "Wind: ".concat((simulation.absoluteWindRadians*180/Math.PI).toFixed(0)), "#FF0000", context, 5, "30pt Arial");
+		
+		simulateBoat(true);
 	}
 }
 
+const drawBoatPolar = function()
+{
+	const x = 1000;
+	const y = 1000;
+	const distance = 2000;
+	
+	
+	var speedLast = -1;
+	var radiansLast = -1;
+	
+	context.beginPath();
+	context.strokeStyle = "#FF0000";
+	context.arc(x, y, 10 * 10, 0, 2*Math.PI);
+	context.stroke();
+
+	context.beginPath();
+	context.strokeStyle = "#00FF00";
+	context.arc(x, y, 20 * 10, 0, 2*Math.PI);
+	context.stroke();
+
+	context.beginPath();
+	context.strokeStyle = "#0000FF";
+	context.arc(x, y, 30 * 10, 0, 2*Math.PI);
+	context.stroke();	
+	
+	
+	
+	context.beginPath();
+	context.strokeStyle = "#000000";
+	
+	
+	var best = 0;
+	var worst = 99999999;
+	var sum = 0;
+	var count = 0;
+	worstRad = -1;
+	
+	var simNumber;
+	for(let wind=0; wind<=360; wind += 1)
+	{
+		var radians = wind / 180 * Math.PI;
+		simNumber++;
+		console.log("WIND CHANGE"); //Reset sim.
+		simulation.boatX = 0;
+		simulation.boatY = 0 ;
+		simulation.boatVelocity = 0;
+		simulation.absoluteBoatRadians = Math.PI/2;
+		simulation.absoluteWindRadians = wind / 180 * Math.PI;
+		simulation.destinationX = simulation.boatX;
+		simulation.destinationY = distance;
+	
+		numTicks = simulateBoat(false);
+		var speed = distance / numTicks;
+		speed *= 50;
+		
+		if(speedLast >= 0)
+		{
+			context.moveTo(x + speedLast * Math.cos(radiansLast), y + speedLast*Math.sin(radiansLast));
+			context.lineTo(x + speed * Math.cos(radians), y + speed*Math.sin(radians));
+	
+		}
+		speedLast = speed;
+		radiansLast = radians;
+		
+		if(speed < worst)
+		{
+			worst = speed;
+			worstRad = radians;
+		}
+		if(speed > best)
+			best = speed;
+		sum += speed;
+		count++;
+		
+	
+		
+	}
+	context.stroke();
+	
+	drawVectorA(x, y, worst, worstRad, "Worst speed", "#000000", context);
+	
+	context.strokeText("Speed: ", x+20, y);
+	context.strokeText("Worst ".concat(worst.toFixed(1)), x+20, y+20);
+	context.strokeText("Best  ".concat(best.toFixed(1)), x+20, y+40);
+	context.strokeText("Avg.  ".concat((sum/count).toFixed(1)), x+20, y+60);
+	context.stroke();
+	
+	drawVectorA(x, y, 40, 3/2*Math.PI, "Boat", "#00FF00", context, 3, "20pt Arial");
+	
+		
+}
+
+//simulateFleet();
+
+drawBoatPolar();
